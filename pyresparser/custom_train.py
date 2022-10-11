@@ -35,7 +35,9 @@ from pathlib import Path
 import spacy
 import json
 import logging
-
+from spacy.training.example import Example
+import itertools
+from itertools import filterfalse
 
 # new entity label
 LABEL = "COL_NAME"
@@ -89,6 +91,54 @@ def trim_entity_spans(data: list) -> list:
 
     return cleaned_data
 
+def determine(ls):
+    """Excludes overlapping entities."""
+    exclude = []
+    count = 0
+    combs = itertools.combinations(ls,2)
+    for a,b in combs:
+        x = range(a['points'][0]['start'], a['points'][0]['end'])
+        y = range(b['points'][0]['start'], b['points'][0]['end'])
+        xs = set(x)
+        res = xs.intersection(y)
+        if res != set():
+            #print("hectic!")
+            exclude.append(a)
+            exclude.append(b)
+        if a['points'][0]['start'] == b['points'][0]['start']:
+            #print("hectic!")
+
+            exclude.append(a)
+            exclude.append(b)
+        if a['points'][0]['end'] == b['points'][0]['end']:
+            #print("hectic!")
+            exclude.append(a)
+            exclude.append(b)
+    for item in ls:
+        if item['points'][0]['end'] - item['points'][0]['start'] < 3:
+            exclude.append(item)
+
+
+    fin = []
+    flag = False
+    for item in ls:
+        if item not in exclude:
+            fin.append(item)
+        if  item['points'][0]['start'] == 160 and item['label'] == "Name":
+            print("here it is!!")
+            #print(item)
+
+            flag = True
+
+
+    if flag:
+        print("fin ",fin)
+        print("exclude ",exclude)
+    #if fin != ls:
+        #print(fin)
+        #print("e ",exclude)
+    return fin
+
 
 def convert_dataturks_to_spacy(dataturks_JSON_FilePath):
     try:
@@ -102,22 +152,29 @@ def convert_dataturks_to_spacy(dataturks_JSON_FilePath):
             text = data['content']
             entities = []
             if data['annotation'] is not None:
-                for annotation in data['annotation']:
-                    # only a single point in text annotation.
-                    point = annotation['points'][0]
-                    labels = annotation['label']
-                    # handle both list of labels or a single label.
-                    if not isinstance(labels, list):
-                        labels = [labels]
+                clean = determine(data['annotation'])
+                if clean is not None:
 
-                    for label in labels:
-                        # dataturks indices are both inclusive [start, end]
-                        # but spacy is not [start, end)
-                        entities.append((
-                            point['start'],
-                            point['end'] + 1,
-                            label
-                        ))
+                    for annotation in clean:
+
+                        # only a single point in text annotation.
+                        point = annotation['points'][0]
+                        labels = annotation['label']
+                        if len(labels) > 1:
+                            continue
+                        # handle both list of labels or a single label.
+                        if not isinstance(labels, list):
+                            labels = [labels]
+                        #print(annotation)
+                        for label in labels:
+
+                            # dataturks indices are both inclusive [start, end]
+                            # but spacy is not [start, end)
+                            entities.append((
+                                point['start'],
+                                point['end'] + 1,
+                                label
+                            ))
 
             training_data.append((text, {"entities": entities}))
         return training_data
@@ -126,7 +183,7 @@ def convert_dataturks_to_spacy(dataturks_JSON_FilePath):
         return None
 
 
-TRAIN_DATA = trim_entity_spans(convert_dataturks_to_spacy("traindata.json"))
+TRAIN_DATA = trim_entity_spans(convert_dataturks_to_spacy("./pyresparser/traindata.json"))
 
 
 @plac.annotations(
@@ -138,7 +195,7 @@ TRAIN_DATA = trim_entity_spans(convert_dataturks_to_spacy("traindata.json"))
 def main(
     model=None,
     new_model_name="training",
-    output_dir='/home/omkarpathak27/Downloads/zipped/pyresparser/pyresparser',
+    output_dir='./pyresparser',
     n_iter=30
 ):
     """Set up the pipeline and entity recognizer, and train the new entity."""
@@ -155,7 +212,7 @@ def main(
     if "ner" not in nlp.pipe_names:
         print("Creating new pipe")
         ner = nlp.create_pipe("ner")
-        nlp.add_pipe(ner, last=True)
+        nlp.add_pipe("ner", last=True)
 
     # otherwise, get it, so we can add labels to it
     else:
@@ -180,13 +237,12 @@ def main(
             print("Starting iteration " + str(itn))
             random.shuffle(TRAIN_DATA)
             losses = {}
+
             for text, annotations in TRAIN_DATA:
-                nlp.update(
-                    [text],  # batch of texts
-                    [annotations],  # batch of annotations
-                    drop=0.2,  # dropout - make it harder to memorise data
-                    sgd=optimizer,  # callable to update weights
-                    losses=losses)
+                doc = nlp.make_doc(text)
+                example = Example.from_dict(doc, annotations)
+                nlp.update([example], losses=losses, sgd=optimizer, drop=0.3)
+
             print("Losses", losses)
 
     # test the trained model

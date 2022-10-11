@@ -2,7 +2,7 @@ import os
 import io
 import spacy
 import docx2txt
-import constants as cs
+import pyresparser.constants as cs
 from pdfminer.converter import TextConverter
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.pdfinterp import PDFResourceManager
