@@ -202,6 +202,7 @@ nlp = spacy.load(os.path.dirname(os.path.abspath(__file__)))
 # for resume in os.listdir(resumes):
 text_raw = extract_text(
     './samples/OmkarResume.pdf',
+    # './samples/Sasha_Keskin_en.pdf',
     '.pdf'
 )
 # entity   = extract_entity_sections_grad(text_raw)
