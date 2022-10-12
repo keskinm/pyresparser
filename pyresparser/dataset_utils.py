@@ -2,6 +2,7 @@ from __future__ import print_function, unicode_literals
 import itertools
 import json
 import copy
+from googletrans import Translator
 
 
 def determine(ls):
@@ -40,19 +41,21 @@ def determine(ls):
 
 class ProtoEnFrTranslator:
     @staticmethod
-    def translate(string):
+    def translate(string, *_, **__):
         return string
 
-
-translator = ProtoEnFrTranslator()
+translator = Translator()
 
 translated_lines = []
 
 with open("pyresparser/traindata.json", "r", encoding="utf-8") as fopen:
     data = fopen.readlines()
 
+count_problematic_indices = 0
+line_idx = 0
 
 for line in data:
+    print(700-line_idx)
     line = json.loads(line)
 
     translated_annotations = []
@@ -60,27 +63,66 @@ for line in data:
     if line["annotation"] is None:
         continue
 
-    clean = determine(line['annotation'])
-    clean = sorted(clean, key=lambda a: a["points"][0]["start"])
+    clean_annotations = determine(line['annotation'])
+    clean_annotations = sorted(clean_annotations, key=lambda a: a["points"][0]["start"])
 
-    for annotation in clean:
+    _clean_annotations = []
+    for annotation in clean_annotations:
         point = annotation["points"][0]
-        if line["content"][point["start"]:point["end"]+1] != point["text"]:
-            continue
+        if line["content"][point["start"]:point["end"]+1] == point["text"]:
+            _clean_annotations.append(annotation)
+    clean_annotations = _clean_annotations
 
+    indices = []
+    for annotation in clean_annotations:
+        indices.append((annotation["points"][0]["start"]))
+        indices.append((annotation["points"][0]["end"]+1))
+
+    if len(set(indices)) != len(indices):
+        count_problematic_indices += 1
+        continue
+
+    if indices[0] != 0:
+        indices.insert(0, 0)
+        inserted = True
+    else:
+        inserted = False
+
+    content_chunks = [line["content"][indices[0]:indices[1]]]
+    content_chunks += [line["content"][i:j] for i, j in zip(indices[1:], indices[2:])]
+    content_chunks.append(line["content"][indices[-1]:])
+
+    translated_content_chunks = []
+    for chunk in content_chunks:
+        try:
+            s = translator.translate(chunk, dest='fr', src='en').text
+        except (IndexError, TypeError, AttributeError):
+            s = chunk
+        translated_content_chunks.append(s)
+
+    translated_content = "".join(translated_content_chunks)
+
+    for annotation_idx, annotation in enumerate(clean_annotations):
+        point = annotation["points"][0]
         translated_annotation = copy.deepcopy(annotation)
         translated_point = copy.deepcopy(point)
 
-        translated_annotation["label"] = [translator.translate(ll) for ll in translated_annotation["label"]]
-        translated_point["text"] = translator.translate(translated_point["text"])
+        try:
+            translated_annotation["label"] = [translator.translate(ll, dest='fr', src='en').text for ll in translated_annotation["label"]]
+        except AttributeError:
+            break
+
+        translated_point["text"] = translated_content_chunks[annotation_idx*2+int(inserted)]
+        translated_point["start"] = translated_content.index(translated_point["text"])
+        translated_point["end"] = translated_point["start"]+len(translated_point["text"])-1
+
         translated_annotation["points"] = [translated_point]
         translated_annotations.append(translated_annotation)
 
-    translated_content = translator.translate(line["content"])
     for translated_annotation in translated_annotations:
         translated_point = translated_annotation["points"][0]
-        if translated_content[translated_point["start"]:translated_point["end"] + 1] != translated_point["text"]:
-            print(translated_content[translated_point["start"]:translated_point["end"] + 1])
+        if translated_content[translated_point["start"]:translated_point["end"]+1] != translated_point["text"]:
+            print(translated_content[translated_point["start"]:translated_point["end"]+1])
             print(translated_point["text"])
             raise ValueError("Mis alignments should be excluded before translation.")
 
@@ -88,3 +130,11 @@ for line in data:
                        "annotation": translated_annotations,
                        "extras": line["extras"],
                        "metadata": line["metadata"]}
+    translated_lines.append(translated_line)
+    line_idx += 1
+
+with open("pyresparser/traindata_fr.json", "w", encoding="utf-8") as fopen:
+    json.dump(translated_lines, fopen)
+
+
+print(count_problematic_indices)
