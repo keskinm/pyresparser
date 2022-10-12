@@ -112,7 +112,7 @@ def main(
         nlp = spacy.load(model)  # load existing spaCy model
         print("Loaded model '%s'" % model)
     else:
-        nlp = spacy.blank("en")  # create blank Language class
+        nlp = spacy.blank("fr" if "fr" in dataset_name else "en")  # create blank Language class
         print("Created blank 'en' model")
     # Add entity recognizer to model if it's not in the pipeline
     # nlp.create_pipe works for built-ins that are registered with spaCy
