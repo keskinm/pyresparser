@@ -44,8 +44,8 @@ class ProtoEnFrTranslator:
     def translate(string, *_, **__):
         return string
 
+
 translator = Translator()
-translator = ProtoEnFrTranslator()
 
 
 def append_to_json(_dict, path):
@@ -62,15 +62,20 @@ def append_to_json(_dict, path):
             f.write(']'.encode())
 
 
+with open("pyresparser/traindata_fr.json", "r", encoding="utf-8") as fopen:
+    done = fopen.readlines()[0]
+    done = json.loads(done)
+    done = len(done)
+
+
 with open("pyresparser/traindata.json", "r", encoding="utf-8") as fopen:
     data = fopen.readlines()
 
-count_problematic_indices = 0
 line_idx = 0
 
-for line in data:
+for line in data[done:]:
     line_idx+=1
-    print(700-line_idx)
+    print(700-done-line_idx)
     line = json.loads(line)
 
     translated_annotations = []
@@ -94,7 +99,6 @@ for line in data:
         indices.append((annotation["points"][0]["end"]+1))
 
     if len(set(indices)) != len(indices):
-        count_problematic_indices += 1
         continue
 
     if indices[0] != 0:
@@ -147,11 +151,3 @@ for line in data:
                        "metadata": line["metadata"]}
 
     append_to_json(translated_line, "pyresparser/traindata_fr.json")
-
-with open("pyresparser/traindata_fr.json", "r", encoding="utf-8") as fopen:
-    data = fopen.readlines()[0]
-    data = json.loads(data)
-    data
-
-
-print("problematic indices", count_problematic_indices)
