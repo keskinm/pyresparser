@@ -151,3 +151,66 @@ for line in data[done:]:
                        "metadata": line["metadata"]}
 
     append_to_json(translated_line, "pyresparser/traindata_fr.json")
+
+
+def traindata(dataturks_JSON_FilePath):
+    training_data = []
+
+    with open(dataturks_JSON_FilePath, 'r', encoding="utf8") as f:
+        lines = f.readlines()
+
+    for line in lines:
+        line = json.loads(line)
+        text = line['content']
+        entities = to_spacy_entities(line)
+        training_data.append((text, {"entities": entities}))
+    return training_data
+
+
+def traindata_fr(dataturks_JSON_FilePath):
+    training_data = []
+
+    with open(dataturks_JSON_FilePath, 'r', encoding="utf8") as f:
+        lines = f.readlines()[0]
+        lines = json.loads(lines)
+
+    for line in lines:
+        text = line['content']
+        entities = to_spacy_entities(line)
+
+        training_data.append((text, {"entities": entities}))
+    return training_data
+
+
+def to_spacy_entities(line):
+    entities = []
+    if line['annotation'] is not None:
+        clean = determine(line['annotation'])
+        if clean is not None:
+
+            for annotation in clean:
+
+                # only a single point in text annotation.
+                point = annotation['points'][0]
+                labels = annotation['label']
+                if len(labels) > 1:
+                    continue
+                # handle both list of labels or a single label.
+                if not isinstance(labels, list):
+                    labels = [labels]
+                # print(annotation)
+                for label in labels:
+                    # dataturks indices are both inclusive [start, end]
+                    # but spacy is not [start, end)
+                    entities.append((
+                        point['start'],
+                        point['end'] + 1,
+                        label
+                    ))
+    return entities
+
+
+train_data_to_spacy_mapper = {
+    "traindata_fr.json": traindata_fr,
+    "traindata.json": traindata
+}

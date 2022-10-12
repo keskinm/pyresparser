@@ -33,11 +33,9 @@ import plac
 import random
 from pathlib import Path
 import spacy
-import json
-import logging
 from spacy.training.example import Example
 
-from pyresparser.dataset_utils import determine
+from pyresparser.dataset_utils import train_data_to_spacy_mapper
 
 # new entity label
 LABEL = "COL_NAME"
@@ -92,50 +90,8 @@ def trim_entity_spans(data: list) -> list:
     return cleaned_data
 
 
-def convert_dataturks_to_spacy(dataturks_JSON_FilePath):
-    try:
-        training_data = []
-        lines = []
-        with open(dataturks_JSON_FilePath, 'r', encoding="utf8") as f:
-            lines = f.readlines()
-
-        for line in lines:
-            data = json.loads(line)
-            text = data['content']
-            entities = []
-            if data['annotation'] is not None:
-                clean = determine(data['annotation'])
-                if clean is not None:
-
-                    for annotation in clean:
-
-                        # only a single point in text annotation.
-                        point = annotation['points'][0]
-                        labels = annotation['label']
-                        if len(labels) > 1:
-                            continue
-                        # handle both list of labels or a single label.
-                        if not isinstance(labels, list):
-                            labels = [labels]
-                        #print(annotation)
-                        for label in labels:
-
-                            # dataturks indices are both inclusive [start, end]
-                            # but spacy is not [start, end)
-                            entities.append((
-                                point['start'],
-                                point['end'] + 1,
-                                label
-                            ))
-
-            training_data.append((text, {"entities": entities}))
-        return training_data
-    except Exception:
-        logging.exception("Unable to process " + dataturks_JSON_FilePath)
-        return None
-
-
-TRAIN_DATA = trim_entity_spans(convert_dataturks_to_spacy("./pyresparser/traindata.json"))
+dataset_name = "traindata_fr.json"
+TRAIN_DATA = trim_entity_spans(train_data_to_spacy_mapper[dataset_name](Path(__file__).parent / dataset_name))
 
 
 @plac.annotations(
@@ -148,7 +104,7 @@ def main(
     model=None,
     new_model_name="training",
     output_dir='./pyresparser',
-    n_iter=30
+    n_iter=5
 ):
     """Set up the pipeline and entity recognizer, and train the new entity."""
     random.seed(0)
