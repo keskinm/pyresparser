@@ -36,8 +36,8 @@ import spacy
 import json
 import logging
 from spacy.training.example import Example
-import itertools
-from itertools import filterfalse
+
+from pyresparser.dataset_utils import determine
 
 # new entity label
 LABEL = "COL_NAME"
@@ -90,54 +90,6 @@ def trim_entity_spans(data: list) -> list:
         cleaned_data.append([text, {'entities': valid_entities}])
 
     return cleaned_data
-
-def determine(ls):
-    """Excludes overlapping entities."""
-    exclude = []
-    count = 0
-    combs = itertools.combinations(ls,2)
-    for a,b in combs:
-        x = range(a['points'][0]['start'], a['points'][0]['end'])
-        y = range(b['points'][0]['start'], b['points'][0]['end'])
-        xs = set(x)
-        res = xs.intersection(y)
-        if res != set():
-            #print("hectic!")
-            exclude.append(a)
-            exclude.append(b)
-        if a['points'][0]['start'] == b['points'][0]['start']:
-            #print("hectic!")
-
-            exclude.append(a)
-            exclude.append(b)
-        if a['points'][0]['end'] == b['points'][0]['end']:
-            #print("hectic!")
-            exclude.append(a)
-            exclude.append(b)
-    for item in ls:
-        if item['points'][0]['end'] - item['points'][0]['start'] < 3:
-            exclude.append(item)
-
-
-    fin = []
-    flag = False
-    for item in ls:
-        if item not in exclude:
-            fin.append(item)
-        if  item['points'][0]['start'] == 160 and item['label'] == "Name":
-            print("here it is!!")
-            #print(item)
-
-            flag = True
-
-
-    if flag:
-        print("fin ",fin)
-        print("exclude ",exclude)
-    #if fin != ls:
-        #print(fin)
-        #print("e ",exclude)
-    return fin
 
 
 def convert_dataturks_to_spacy(dataturks_JSON_FilePath):
