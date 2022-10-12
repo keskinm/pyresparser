@@ -74,8 +74,8 @@ with open("pyresparser/traindata.json", "r", encoding="utf-8") as fopen:
 line_idx = 0
 
 for line in data[done:]:
-    line_idx+=1
-    print(700-done-line_idx)
+    line_idx += 1
+    print(len(data)-done-line_idx)
     line = json.loads(line)
 
     translated_annotations = []
