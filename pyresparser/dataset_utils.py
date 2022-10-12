@@ -45,8 +45,22 @@ class ProtoEnFrTranslator:
         return string
 
 translator = Translator()
+translator = ProtoEnFrTranslator()
 
-translated_lines = []
+
+def append_to_json(_dict, path):
+    """Append dict to json file."""
+    with open(path, 'ab+') as f:
+        f.seek(0, 2)  # Go to the end of file
+        if f.tell() == 0:  # Check if file is empty
+            f.write(json.dumps([_dict]).encode())  # If empty, write an array
+        else:
+            f.seek(-1, 2)
+            f.truncate()  # Remove the last character, open the array
+            f.write(' , '.encode())  # Write the separator
+            f.write(json.dumps(_dict).encode())  # Dump the dictionary
+            f.write(']'.encode())
+
 
 with open("pyresparser/traindata.json", "r", encoding="utf-8") as fopen:
     data = fopen.readlines()
@@ -55,12 +69,13 @@ count_problematic_indices = 0
 line_idx = 0
 
 for line in data:
+    line_idx+=1
     print(700-line_idx)
     line = json.loads(line)
 
     translated_annotations = []
 
-    if line["annotation"] is None:
+    if not line["annotation"]:
         continue
 
     clean_annotations = determine(line['annotation'])
@@ -130,11 +145,13 @@ for line in data:
                        "annotation": translated_annotations,
                        "extras": line["extras"],
                        "metadata": line["metadata"]}
-    translated_lines.append(translated_line)
-    line_idx += 1
 
-with open("pyresparser/traindata_fr.json", "w", encoding="utf-8") as fopen:
-    json.dump(translated_lines, fopen)
+    append_to_json(translated_line, "pyresparser/traindata_fr.json")
+
+with open("pyresparser/traindata_fr.json", "r", encoding="utf-8") as fopen:
+    data = fopen.readlines()[0]
+    data = json.loads(data)
+    data
 
 
-print(count_problematic_indices)
+print("problematic indices", count_problematic_indices)
