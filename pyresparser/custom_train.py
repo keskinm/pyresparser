@@ -104,7 +104,7 @@ def main(
     model=None,
     new_model_name="training",
     output_dir='./pyresparser',
-    n_iter=5
+    n_iter=30
 ):
     """Set up the pipeline and entity recognizer, and train the new entity."""
     random.seed(0)
